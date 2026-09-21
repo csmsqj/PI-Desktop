@@ -38,6 +38,7 @@ import {
   type Model,
   type Models,
   type SimpleStreamOptions,
+  type AnthropicOptions,
   type ToolResultMessage,
   type Usage,
   type UserMessage,
@@ -1769,6 +1770,9 @@ Delegation rules:
           withOpenCodeSessionHeaders(
             {
               ...options,
+              ...(this.thinkingLevel === "off"
+                ? {}
+                : { effort: this.thinkingLevel as AnthropicOptions["effort"] }),
               maxRetries: PROVIDER_REQUEST_MAX_RETRIES,
               sessionId: this.sessionId,
               // pi-ai only exposes onResponse after a request succeeds. Capture the
