@@ -239,13 +239,25 @@ export function buildProviderModel(
           supportsDeveloperRole: catalogModel.compat?.supportsDeveloperRole === true,
         }
       : catalogModel.compat;
+  // pi-ai's Anthropic adapter only emits `output_config.effort` (the field
+  // that carries max/xhigh) when `compat.forceAdaptiveThinking` is set; the
+  // default budget-based thinking path has no effort knob at all. Gate on a
+  // reasoning model with a non-off level so plain completions stay untouched.
+  const anthropicCompat =
+    binding.api === "anthropic-messages" &&
+    (catalogModel.reasoning === true ||
+      (provider.supportedThinkingLevels ?? []).some(
+        (level) => level !== "off",
+      ))
+      ? { ...(compat ?? {}), forceAdaptiveThinking: true }
+      : compat;
   return {
     ...catalogModel,
     id: provider.modelId,
     api: binding.api,
     provider: provider.id,
     baseUrl,
-    ...(compat ? { compat } : {}),
+    ...(anthropicCompat ? { compat: anthropicCompat } : {}),
     ...(Object.keys(modelHeaders).length > 0 ? { headers: modelHeaders } : {}),
   } as Model<Api>;
 }

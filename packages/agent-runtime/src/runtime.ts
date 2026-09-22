@@ -38,7 +38,6 @@ import {
   type Model,
   type Models,
   type SimpleStreamOptions,
-  type AnthropicOptions,
   type ToolResultMessage,
   type Usage,
   type UserMessage,
@@ -1770,9 +1769,12 @@ Delegation rules:
           withOpenCodeSessionHeaders(
             {
               ...options,
-              ...(this.thinkingLevel === "off"
-                ? {}
-                : { effort: this.thinkingLevel as AnthropicOptions["effort"] }),
+              // Provider-neutral thinking level: pi-ai's streamSimple() maps
+              // `reasoning` onto each adapter's own knob (Anthropic effort,
+              // OpenAI reasoning_effort, zai/qwen/deepseek thinking toggles),
+              // which covers every provider instead of only Anthropic. The
+              // local ThinkingLevel ladder matches pi-ai's, hence the cast.
+              reasoning: this.thinkingLevel as SimpleStreamOptions["reasoning"],
               maxRetries: PROVIDER_REQUEST_MAX_RETRIES,
               sessionId: this.sessionId,
               // pi-ai only exposes onResponse after a request succeeds. Capture the

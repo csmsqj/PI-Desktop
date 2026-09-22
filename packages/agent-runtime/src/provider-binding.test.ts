@@ -463,6 +463,74 @@ describe("explicit extended thinking levels", () => {
   });
 });
 
+describe("Anthropic adaptive thinking effort", () => {
+  const anthropicReasoningProvider: RuntimeProviderConfig = {
+    ...keyedProvider,
+    id: "claude-gateway",
+    name: "Claude gateway",
+    baseUrl: "https://gw.example",
+    modelId: "claude-opus-4-8",
+    apiStyle: "anthropic_messages",
+    supportsReasoning: true,
+    supportedThinkingLevels: ["off", "high", "xhigh", "max"],
+    modelConfig: {
+      source: "models.dev",
+      name: "Claude Opus 4.8",
+      baseUrl: "https://gw.example",
+      reasoning: true,
+      supportedThinkingLevels: ["low", "medium", "high", "xhigh", "max"],
+      input: ["text", "image"],
+      contextWindow: 1_000_000,
+      maxTokens: 128_000,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    },
+  };
+
+  it("sets forceAdaptiveThinking so reasoning max reaches output_config.effort", async () => {
+    const provider = anthropicReasoningProvider;
+    const model = buildProviderModel(provider) as any;
+    expect(model.compat).toMatchObject({ forceAdaptiveThinking: true });
+
+    const requests: Record<string, unknown>[] = [];
+    const fetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      // A non-stream error response is fine: the request body is what matters.
+      return new Response("bad gateway", { status: 502 });
+    });
+
+    await createProviderModels(provider, model)
+      .streamSimple(
+        model,
+        {
+          systemPrompt: "system",
+          messages: [{ role: "user", content: "hello", timestamp: Date.now() }],
+          tools: [],
+        },
+        { reasoning: "max", fetch },
+      )
+      .result();
+
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({
+      thinking: { type: "adaptive" },
+      output_config: { effort: "max" },
+    });
+  });
+
+  it("does not force adaptive thinking on a non-reasoning Anthropic model", () => {
+    const model = buildProviderModel({
+      ...anthropicReasoningProvider,
+      supportedThinkingLevels: ["off"],
+      modelConfig: {
+        ...anthropicReasoningProvider.modelConfig!,
+        reasoning: false,
+        supportedThinkingLevels: ["off"],
+      },
+    }) as any;
+    expect(model.compat?.forceAdaptiveThinking).toBeUndefined();
+  });
+});
+
 describe("buildProviderModel model-level wire API", () => {
   const museCatalog: ModelConfig = {
     source: "models.dev",
