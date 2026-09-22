@@ -464,6 +464,103 @@ describe("explicit extended thinking levels", () => {
   });
 });
 
+describe("Anthropic catalog fallthrough", () => {
+  const anthropicReasoningProvider: RuntimeProviderConfig = {
+    ...keyedProvider,
+    id: "claude-gateway",
+    name: "Claude gateway",
+    baseUrl: "https://gw.example",
+    modelId: "claude-opus-4-8",
+    apiStyle: "anthropic_messages",
+    supportsReasoning: true,
+    supportedThinkingLevels: ["off", "high", "xhigh", "max"],
+    modelConfig: {
+      source: "models.dev",
+      name: "Claude Opus 4.8",
+      baseUrl: "https://gw.example",
+      reasoning: true,
+      supportedThinkingLevels: ["low", "medium", "high", "xhigh", "max"],
+      input: ["text", "image"],
+      contextWindow: 1_000_000,
+      maxTokens: 128_000,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    },
+  };
+
+  it("adopts pi-ai's adaptive metadata so reasoning max reaches output_config.effort", async () => {
+    const provider = anthropicReasoningProvider;
+    const model = buildProviderModel(provider);
+    expect(model.thinkingLevelMap).toMatchObject({ xhigh: "xhigh", max: "max" });
+    expect(model.compat).toMatchObject({ forceAdaptiveThinking: true });
+
+    const requests: Record<string, unknown>[] = [];
+    const fetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      // A non-stream error response is fine: the request body is what matters.
+      return new Response("bad gateway", { status: 502 });
+    });
+
+    await createProviderModels(provider, model)
+      .streamSimple(
+        model,
+        {
+          systemPrompt: "system",
+          messages: [{ role: "user", content: "hello", timestamp: Date.now() }],
+          tools: [],
+        },
+        { reasoning: "max", fetch },
+      )
+      .result();
+
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({
+      thinking: { type: "adaptive" },
+      output_config: { effort: "max" },
+    });
+  });
+
+  it("does not force adaptive thinking on an Anthropic id without pi-ai adaptive metadata", () => {
+    const model = buildProviderModel({
+      ...anthropicReasoningProvider,
+      modelId: "claude-haiku-4-5",
+      modelConfig: {
+        ...anthropicReasoningProvider.modelConfig!,
+        name: "Claude Haiku 4.5",
+      },
+    });
+    expect((model.compat as { forceAdaptiveThinking?: boolean } | undefined)?.forceAdaptiveThinking).toBeUndefined();
+    expect(model.thinkingLevelMap).toBeUndefined();
+  });
+
+  it("never invents adaptive metadata for an unknown Anthropic-compatible id", () => {
+    const model = buildProviderModel({
+      ...anthropicReasoningProvider,
+      modelId: "my-gateway-claude",
+      modelConfig: {
+        ...anthropicReasoningProvider.modelConfig!,
+        name: "Gateway Claude",
+      },
+    });
+    expect((model.compat as { forceAdaptiveThinking?: boolean } | undefined)?.forceAdaptiveThinking).toBeUndefined();
+    expect(model.thinkingLevelMap).toBeUndefined();
+  });
+
+  it("lets a models.dev off=null mapping override the pi-ai defaults", () => {
+    const model = buildProviderModel({
+      ...anthropicReasoningProvider,
+      modelConfig: {
+        ...anthropicReasoningProvider.modelConfig!,
+        thinkingLevelMap: { off: null },
+      },
+    });
+    expect(model.thinkingLevelMap).toMatchObject({
+      xhigh: "xhigh",
+      max: "max",
+      off: null,
+    });
+  });
+});
+
 describe("buildProviderModel model-level wire API", () => {
   const museCatalog: ModelConfig = {
     source: "models.dev",

@@ -21,6 +21,7 @@ import {
   buildCopilotDynamicHeaders,
   hasCopilotVisionInput,
 } from "@earendil-works/pi-ai/api/github-copilot-headers";
+import { ANTHROPIC_MODELS } from "@earendil-works/pi-ai/providers/anthropic.models";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import { openAIResponsesApi } from "@earendil-works/pi-ai/api/openai-responses.lazy";
 import { openAICodexResponsesApi } from "@earendil-works/pi-ai/api/openai-codex-responses.lazy";
@@ -239,13 +240,50 @@ export function buildProviderModel(
           supportsDeveloperRole: catalogModel.compat?.supportsDeveloperRole === true,
         }
       : catalogModel.compat;
+  const anthropicDefaults =
+    binding.api === "anthropic-messages"
+      ? (ANTHROPIC_MODELS as Record<string, Model<Api> | undefined>)[
+          provider.modelId
+        ]
+      : undefined;
+  // pi-ai's Anthropic adapter only reaches the effort-capable path when
+  // `compat.forceAdaptiveThinking` is set, and its mapThinkingLevelToEffort()
+  // falls back to "high" for xhigh/max unless thinkingLevelMap translates
+  // them (pi-ai dist/api/anthropic-messages.js). models.dev has no xhigh/max
+  // entries and generic configs carry none, so an Anthropic-compatible row
+  // for an adaptive-era Claude model silently loses the effort knob even when
+  // the session's reasoning level does reach streamSimple. Adopt pi-ai's own
+  // generated metadata for the exact model id when the resolved config lacks
+  // it: the adaptive flag and only the xhigh/max ladder entries, so a
+  // models.dev off=null mapping still means "omit reasoning when off". An
+  // unknown id or a budget-era model matches nothing and keeps the wire shape
+  // unchanged.
+  const anthropicCompat = anthropicDefaults?.compat as
+    | { forceAdaptiveThinking?: boolean }
+    | undefined;
+  const anthropicOverlay =
+    anthropicDefaults &&
+    (anthropicDefaults.thinkingLevelMap || anthropicCompat?.forceAdaptiveThinking === true)
+      ? {
+          thinkingLevelMap: {
+            ...(anthropicDefaults.thinkingLevelMap ?? {}),
+            ...(catalogModel.thinkingLevelMap ?? {}),
+          },
+          compat: {
+            ...(anthropicCompat?.forceAdaptiveThinking === true
+              ? { forceAdaptiveThinking: true }
+              : {}),
+            ...(catalogModel.compat ?? {}),
+          },
+        }
+      : undefined;
   return {
     ...catalogModel,
     id: provider.modelId,
     api: binding.api,
     provider: provider.id,
     baseUrl,
-    ...(compat ? { compat } : {}),
+    ...(anthropicOverlay ?? (compat ? { compat } : {})),
     ...(Object.keys(modelHeaders).length > 0 ? { headers: modelHeaders } : {}),
   } as Model<Api>;
 }
