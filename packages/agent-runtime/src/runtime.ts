@@ -1774,7 +1774,11 @@ Delegation rules:
               // OpenAI reasoning_effort, zai/qwen/deepseek thinking toggles),
               // which covers every provider instead of only Anthropic. The
               // local ThinkingLevel ladder matches pi-ai's, hence the cast.
-              reasoning: this.thinkingLevel as SimpleStreamOptions["reasoning"],
+              // Only inject for a non-off level so "off" leaves the field
+              // absent instead of serializing an explicit off value.
+              ...(this.thinkingLevel !== "off"
+                ? { reasoning: this.thinkingLevel as SimpleStreamOptions["reasoning"] }
+                : {}),
               maxRetries: PROVIDER_REQUEST_MAX_RETRIES,
               sessionId: this.sessionId,
               // pi-ai only exposes onResponse after a request succeeds. Capture the
