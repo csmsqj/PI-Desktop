@@ -186,7 +186,18 @@ PI-Desktop must not permanently restrict users to a short fixed model list.
    `experimental`, and `provider` into the shared model surfaces.
 5. pi-ai remains only the request/OAuth implementation layer. Its bundled model
    catalog and model capability functions are not read for names, limits,
-   pricing, modalities, reasoning, or other model configuration.
+   pricing, modalities, reasoning, or other model configuration. One narrow
+   exception exists for Anthropic-compatible transport: when a provider row's
+   wire API is `anthropic-messages`, the agent runtime adopts the matching
+   pi-ai Anthropic record's `compat.forceAdaptiveThinking` flag and the
+   `xhigh`/`max` entries of its `thinkingLevelMap`, matched through the
+   catalog metadata alias rule (namespace/region aliases and
+   `-thinking`/`-agent`/`-latest` variants). models.dev publishes neither the
+   adaptive-thinking compatibility flag nor an xhigh/max effort mapping, so
+   without this exception a gateway row for an adaptive-era Claude model
+   silently clamps those levels to `high`. The models.dev record still wins
+   wherever it defines a value (including an `off: null` mapping), and ids
+   the pi-ai catalog does not know match nothing.
 6. Input and output modality arrays retain `text`, `image`, `audio`, `video`,
    and `pdf`. The text agent picker exposes models that can handle text while
    preserving all raw records in the file for future surfaces. Image input is

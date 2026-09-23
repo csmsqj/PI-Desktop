@@ -545,6 +545,32 @@ describe("Anthropic catalog fallthrough", () => {
     expect(model.thinkingLevelMap).toBeUndefined();
   });
 
+  it("does not force adaptive thinking on a budget-era id with a variant suffix", () => {
+    const model = buildProviderModel({
+      ...anthropicReasoningProvider,
+      modelId: "claude-haiku-4-5-thinking",
+      modelConfig: {
+        ...anthropicReasoningProvider.modelConfig!,
+        name: "Claude Haiku 4.5",
+      },
+    });
+    expect((model.compat as { forceAdaptiveThinking?: boolean } | undefined)?.forceAdaptiveThinking).toBeUndefined();
+    expect(model.thinkingLevelMap).toBeUndefined();
+  });
+
+  it("ignores variant suffixes on an id the pi-ai catalog does not know", () => {
+    const model = buildProviderModel({
+      ...anthropicReasoningProvider,
+      modelId: "proxy/my-gateway-claude-agent-thinking",
+      modelConfig: {
+        ...anthropicReasoningProvider.modelConfig!,
+        name: "Gateway Claude",
+      },
+    });
+    expect((model.compat as { forceAdaptiveThinking?: boolean } | undefined)?.forceAdaptiveThinking).toBeUndefined();
+    expect(model.thinkingLevelMap).toBeUndefined();
+  });
+
   it("lets a models.dev off=null mapping override the pi-ai defaults", () => {
     const model = buildProviderModel({
       ...anthropicReasoningProvider,
@@ -558,6 +584,25 @@ describe("Anthropic catalog fallthrough", () => {
       max: "max",
       off: null,
     });
+  });
+
+  it.each([
+    "anthropic/claude-opus-4-8",
+    "claude-opus-4-8@us-east",
+    "Anthropic/Claude-Opus-4-8",
+    // Gateway variant suffixes resolve the same catalog metadata; the strict
+    // binding-identity rule misses them and silently clamps max back to high.
+    "proxy/claude-opus-4-8-agent-thinking",
+    "claude-opus-4-8-thinking",
+    "claude-opus-4-8-agent",
+    "claude-opus-4-8-latest",
+  ])("resolves pi-ai metadata through the %s alias", (modelId) => {
+    const model = buildProviderModel({
+      ...anthropicReasoningProvider,
+      modelId,
+    });
+    expect(model.thinkingLevelMap).toMatchObject({ xhigh: "xhigh", max: "max" });
+    expect(model.compat).toMatchObject({ forceAdaptiveThinking: true });
   });
 });
 

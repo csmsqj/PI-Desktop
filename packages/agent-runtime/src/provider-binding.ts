@@ -33,6 +33,7 @@ import {
   OPENCODE_GO_API_STYLE,
   OPENCODE_GO_BASE_URL,
   resolveApiStyle,
+  catalogModelIdsMatch,
   deepseekRequestCompat,
   zhipuRequestCompat,
   type ThinkingLevel,
@@ -240,11 +241,19 @@ export function buildProviderModel(
           supportsDeveloperRole: catalogModel.compat?.supportsDeveloperRole === true,
         }
       : catalogModel.compat;
+  // A custom row may name the model with a namespace/region suffix
+  // (`anthropic/claude-opus-4-8`, `claude-opus-4-8@region`) or a gateway
+  // variant suffix (`proxy/claude-opus-4-8-agent-thinking`). This lookup reads
+  // catalog metadata and never decides binding identity, so use the broader
+  // catalog alias rule, which also collapses `-thinking`/`-agent`/`-latest`
+  // variants; the strict binding rule misses them and silently loses
+  // xhigh/max. The catalog is a handful of records, so a linear scan is free.
   const anthropicDefaults =
     binding.api === "anthropic-messages"
-      ? (ANTHROPIC_MODELS as Record<string, Model<Api> | undefined>)[
-          provider.modelId
-        ]
+      ? (Object.values(ANTHROPIC_MODELS) as Array<Model<Api> | undefined>).find(
+          (entry): entry is Model<Api> =>
+            entry !== undefined && catalogModelIdsMatch(entry.id, provider.modelId),
+        )
       : undefined;
   // pi-ai's Anthropic adapter only reaches the effort-capable path when
   // `compat.forceAdaptiveThinking` is set, and its mapThinkingLevelToEffort()

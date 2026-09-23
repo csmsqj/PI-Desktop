@@ -542,7 +542,12 @@ Goal 批准所承诺的内容与 Plan 批准所承诺的内容完全相同：`mo
   （ADR 0194 / ADR 0295）。
 - 随包的 models.dev 发布快照对于已发布的推理支持具有权威性，
   思维层面的映射、限制、输入模式、定价、标题和适配器
-  每个已解决的已知模型的兼容性。
+  每个已解决的已知模型的兼容性。唯一的元数据例外：wire API 为
+  `anthropic-messages` 的提供商行会采纳匹配的 pi-ai Anthropic 记录的
+  `forceAdaptiveThinking` 标志与思考级别映射中的 `xhigh`/`max` 条目
+  （按目录别名规则匹配），因为 models.dev 不发布 adaptive thinking
+  兼容元数据；models.dev 有定义的值仍然优先（见
+  `11-provider-model-system.md` 第 6.2 节）。
 - 提供商配置不能覆盖已知模型语义。未知
   自由格式的 id 仍然可以通过通用的纯文本、非推理的方式运行
   模型，因此仅公开 `off`。

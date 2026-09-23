@@ -690,7 +690,12 @@ criterion-by-criterion report of what was met and the evidence observed.
 - The bundled models.dev release snapshot is authoritative for published
   reasoning support, thinking-level mapping, limits, input/output modalities,
   pricing, and other model metadata. pi-ai remains responsible for request
-  serialization and adapter compatibility.
+  serialization and adapter compatibility. Sole metadata exception: an
+  `anthropic-messages` row adopts the matching pi-ai Anthropic record's
+  `forceAdaptiveThinking` flag and `xhigh`/`max` thinking-level map entries
+  (catalog-alias matched), because models.dev publishes no adaptive-thinking
+  compatibility metadata; models.dev values still override wherever defined
+  (see `11-provider-model-system.md` section 6.2).
 - Provider configuration cannot override published reasoning, thinking,
   limits, or other model metadata. The explicit attachment capability fields
   are the exception: `supportsImages` and `supportsDocuments` are effective

@@ -173,7 +173,16 @@ PI-Desktop 不得把用户永久限制在一份简短的固定模型列表上。
    `cost`、`interleaved`、`status`、`experimental` 和 `provider` 映射到共享的
    模型界面上。
 5. pi-ai 仅仅是请求/OAuth 的实现层。它自带的模型目录与模型能力函数，不会被
-   用来读取名称、上限、定价、模态、推理或其他模型配置。
+   用来读取名称、上限、定价、模态、推理或其他模型配置。唯一的窄例外面向
+   Anthropic 兼容传输：当提供商行的 wire API 为 `anthropic-messages` 时，
+   agent 运行时会采纳匹配的 pi-ai Anthropic 记录的
+   `compat.forceAdaptiveThinking` 标志与其 `thinkingLevelMap` 中的
+   `xhigh`/`max` 条目（按目录元数据别名规则匹配，含命名空间/区域别名与
+   `-thinking`/`-agent`/`-latest` 变体）。models.dev 既不发布 adaptive
+   thinking 兼容标志，也不发布 xhigh/max 的 effort 映射；缺少该例外时，
+   面向 adaptive 时代 Claude 模型的网关行会把这些级别静默钳制回 `high`。
+   models.dev 有定义的值仍然优先（包括 `off: null` 映射），pi-ai 目录
+   不认识的 id 不会匹配任何条目。
 6. 输入与输出模态数组保留 `text`、`image`、`audio`、`video` 和 `pdf`。文本
    agent 选择器暴露能处理文本的模型，同时在文件中保留全部原始记录以备将来的
    界面使用。只有当模型接受图片输入时，图片才会作为临时图片内容块发送。PDF
